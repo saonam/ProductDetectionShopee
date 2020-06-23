@@ -20,6 +20,7 @@ import torch.utils.data.distributed
 
 from datasets.dataset import shopeeDataset
 from torchvision.models import resnet18, resnet34
+from efficientnet_pytorch import EfficientNet
 from tqdm import tqdm
 
 
@@ -135,7 +136,8 @@ def main_worker(gpu, ngpus_per_node, args):
     test_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
 
 
-    model = resnet18(num_classes=42)
+    # model = resnet18(num_classes=42)
+    model = EfficientNet.from_pretrained("efficientnet-b0", advprop=True, num_classes=42)
 
     if args.distributed:
         # For multiprocessing distributed, DistributedDataParallel constructor
