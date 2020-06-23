@@ -64,7 +64,7 @@ def train(train_loader, model, criterion, optimizer,  epoch, args):
     losses = []
     model.train()
     optimizer.zero_grad()
-    for idx, (images, target) in enumerate(tqdm(train_loader)):
+    for idx, (images, target) in enumerate(tqdm(train_loader, ncols=50)):
         if args.gpu is not None:
             images = images.cuda(args.gpu, non_blocking=True)
         target = target.cuda(args.gpu, non_blocking=True)
@@ -86,7 +86,7 @@ def validation(valid_loader, model, criterion, args):
     correct = 0
     losses = []
     with torch.no_grad():
-        for idx, (images, target) in enumerate(tqdm(valid_loader)):
+        for idx, (images, target) in enumerate(tqdm(valid_loader, ncols=50)):
             if args.gpu is not None:
                 images = images.cuda(args.gpu, non_blocking=True)
             target = target.cuda(args.gpu, non_blocking=True)
@@ -135,7 +135,7 @@ def main_worker(gpu, ngpus_per_node, args):
     test_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
 
 
-    model = resnet34(num_classes=42)
+    model = resnet18(num_classes=42)
 
     if args.distributed:
         # For multiprocessing distributed, DistributedDataParallel constructor
