@@ -5,7 +5,7 @@ import cv2
 import torch
 from torch.utils.data import Dataset
 import torchvision as tv
-from dataset import Augment
+from datasets import Augment
 
 
 class shopeeDataset(Dataset):
@@ -16,9 +16,9 @@ class shopeeDataset(Dataset):
         self.phase = phase
         self.root_path = ''
         if self.phase =='train':
-            self.root_path = '/kaggle/input/productdetectionshopee/train/train'
+            self.root_path = './data/train/train'
         else:
-            self.root_path = '/kaggle/input/productdetectionshopee/test/test'
+            self.root_path = './test/test'
         self.tform = Augment(phase=phase)
 
 

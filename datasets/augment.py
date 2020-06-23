@@ -1,5 +1,6 @@
 import imgaug.augmenters as iaa
 import imgaug as ia
+import torchvision as tv
 
 class Augment(object):
     def __init__(self, phase='train', width=512, height=512):

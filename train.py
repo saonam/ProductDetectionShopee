@@ -121,8 +121,8 @@ def main_worker(gpu, ngpus_per_node, args):
                                 world_size=args.world_size, rank=args.rank)
 
 
-    train_df = pd.read_csv('./datas/train.csv')
-    test_df = pd.read_csv('./datas/test.csv')
+    train_df = pd.read_csv('./data/train.csv')
+    test_df = pd.read_csv('./data/test.csv')
     train_df, valid_df = train_test_split(train_df, test_size=0.2, random_state=42, stratify=train_df['category'])
 
 
@@ -137,6 +137,35 @@ def main_worker(gpu, ngpus_per_node, args):
 
     model = resnet18(num_classes=42)
 
+    if args.distributed:
+        # For multiprocessing distributed, DistributedDataParallel constructor
+        # should always set the single device scope, otherwise,
+        # DistributedDataParallel will use all available devices.
+        if args.gpu is not None:
+            torch.cuda.set_device(args.gpu)
+            model.cuda(args.gpu)
+            # When using a single GPU per process and per
+            # DistributedDataParallel, we need to divide the batch size
+            # ourselves based on the total number of GPUs we have
+            args.batch_size = int(args.batch_size / ngpus_per_node)
+            args.workers = int(
+                (args.workers + ngpus_per_node - 1) / ngpus_per_node)
+            model = torch.nn.parallel.DistributedDataParallel(
+                model, device_ids=[args.gpu], find_unused_parameters=True)
+            print('Run with DistributedDataParallel with divice_ids....')
+        else:
+            model.cuda()
+            # DistributedDataParallel will divide and allocate batch_size to all
+            # available GPUs if device_ids are not set
+            model = torch.nn.parallel.DistributedDataParallel(model)
+            print('Run with DistributedDataParallel without device_ids....')
+    elif args.gpu is not None:
+        torch.cuda.set_device(args.gpu)
+        model = model.cuda(args.gpu)
+    else:
+        model = model.cuda()
+        print('Run with DataParallel ....')
+        model = torch.nn.DataParallel(model).cuda()
     # define loss function (criterion) and optimizer
     criterion = nn.CrossEntropyLoss().cuda(args.gpu)
 
