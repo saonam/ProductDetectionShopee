@@ -58,14 +58,16 @@ parser.add_argument('--grad_accumulation_steps', default=1, type=int,
                     help='GPU id to use.')
 
 
-def train(train_loader, model, criterion, optimizer, scheduler,  epoch, args):
+def train(train_loader, model, criterion, optimizer,  epoch, args):
     # switch to train mode
 
+    losses = []
+    model.train()
     optimizer.zero_grad()
     for idx, (images, target) in enumerate(tqdm(train_loader)):
         if args.gpu is not None:
             images = images.cuda(args.gpu, non_blocking=True)
-        # target = target.cuda(args.gpu, non_blocking=True)
+        target = target.cuda(args.gpu, non_blocking=True)
 
         # compute output
         output = model(images)
@@ -76,6 +78,31 @@ def train(train_loader, model, criterion, optimizer, scheduler,  epoch, args):
             torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
             optimizer.step()
             optimizer.zero_grad()
+        losses.append(loss.item())
+    return np.mean(losses)
+def validation(valid_loader, model, criterion, args):
+    model.eval()
+    total = 0
+    correct = 0
+    losses = []
+    with torch.no_grad():
+        for idx, (images, target) in enumerate(tqdm(valid_loader)):
+            if args.gpu is not None:
+                images = images.cuda(args.gpu, non_blocking=True)
+            target = target.cuda(args.gpu, non_blocking=True)
+            output = model(images)
+
+            loss = criterion(output, target)
+            output = output.cpu()
+            target = target.cpu()
+
+            losses.append(loss.item())
+            _, predicted = torch.max(output.data, 1)
+            total += target.size(0)
+            correct += (predicted == target).sum().item()
+        accuracy = correct*100.0/total
+
+    return np.mean(losses), accuracy
 
 def main_worker(gpu, ngpus_per_node, args):
     args.gpu = gpu
@@ -115,14 +142,16 @@ def main_worker(gpu, ngpus_per_node, args):
 
     optimizer = torch.optim.Adam(model.parameters(), args.lr,
                                 weight_decay=args.weight_decay)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=3, verbose=True)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', patience=3, verbose=True)
     cudnn.benchmark = True
 
     print('Done main workers')
 
     for epoch in range(args.epochs):
-        train(train_loader, model, criterion, optimizer, scheduler, epoch, args)
-
+        train_loss = train(train_loader, model, criterion, optimizer, epoch, args)
+        val_loss, acc= validation(valid_loader, model, criterion, args)
+        print('Epoch: {}, train_loss: {}, val_loss: {}, Acc: {} %'.format(epoch, train_loss, val_loss, acc))
+        scheduler.step(acc)
 
 
 def main():
