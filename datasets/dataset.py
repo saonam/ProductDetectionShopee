@@ -16,9 +16,9 @@ class shopeeDataset(Dataset):
         self.phase = phase
         self.root_path = ''
         if self.phase =='train':
-            self.root_path = './data/train/train'
+            self.root_path = './datas/train/train'
         else:
-            self.root_path = './test/test'
+            self.root_path = './datas/test/test'
         self.tform = Augment(phase=phase)
 
 
@@ -28,11 +28,12 @@ class shopeeDataset(Dataset):
         target = self.df.loc[idx, 'category']
         file_name = self.df.loc[idx, 'filename']
         image_path = os.path.join(self.root_path, self.num2str(target), file_name)
-        img = cv2.imread(image_path)
+        # img = cv2.imread(image_path)
+        img = Image.open(image_path)
 
         target = np.array(target)
 
-        img = self.tform.transform(image=img)
+        img = self.tform.transform(img)
         target = torch.from_numpy(target)
 
         return img, target

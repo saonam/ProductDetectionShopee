@@ -19,7 +19,7 @@ import torch.utils.data
 import torch.utils.data.distributed
 
 from datasets.dataset import shopeeDataset
-from torchvision.models import resnet18
+from torchvision.models import resnet18, resnet34
 from tqdm import tqdm
 
 
@@ -30,7 +30,7 @@ parser.add_argument('--epochs', default=90, type=int, metavar='N',
                             help='number of total epochs to run')
 parser.add_argument('-b', '--batch_size', default=256, type=int,
                             metavar='N', help='mini-batch size (default: 256), this is the total batch size of all GPUs on the current node when using Data Parallel or Distributed Data Parallel')
-parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
+parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float,
                             metavar='LR', help='initial learning rate', dest='lr')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                             help='momentum')
@@ -75,7 +75,7 @@ def train(train_loader, model, criterion, optimizer,  epoch, args):
         # compute gradient and do SGD step
         loss.backward()
         if (idx + 1) % args.grad_accumulation_steps == 0:
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
             optimizer.zero_grad()
         losses.append(loss.item())
@@ -121,8 +121,8 @@ def main_worker(gpu, ngpus_per_node, args):
                                 world_size=args.world_size, rank=args.rank)
 
 
-    train_df = pd.read_csv('./data/train.csv')
-    test_df = pd.read_csv('./data/test.csv')
+    train_df = pd.read_csv('./datas/train.csv')
+    test_df = pd.read_csv('./datas/test.csv')
     train_df, valid_df = train_test_split(train_df, test_size=0.2, random_state=42, stratify=train_df['category'])
 
 
@@ -135,7 +135,7 @@ def main_worker(gpu, ngpus_per_node, args):
     test_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
 
 
-    model = resnet18(num_classes=42)
+    model = resnet34(num_classes=42)
 
     if args.distributed:
         # For multiprocessing distributed, DistributedDataParallel constructor
@@ -169,7 +169,7 @@ def main_worker(gpu, ngpus_per_node, args):
     # define loss function (criterion) and optimizer
     criterion = nn.CrossEntropyLoss().cuda(args.gpu)
 
-    optimizer = torch.optim.Adam(model.parameters(), args.lr,
+    optimizer = torch.optim.AdamW(model.parameters(), args.lr,
                                 weight_decay=args.weight_decay)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', patience=3, verbose=True)
     cudnn.benchmark = True
