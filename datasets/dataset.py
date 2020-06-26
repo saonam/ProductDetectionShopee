@@ -26,18 +26,21 @@ class shopeeDataset(Dataset):
     def __len__(self):
         return len(self.df)
     def __getitem__(self, idx):
-        target = self.df.loc[idx, 'category']
         file_name = self.df.loc[idx, 'filename']
         image_path = os.path.join(self.root_path, self.num2str(target), file_name)
         # img = cv2.imread(image_path)
         img = Image.open(image_path).convert('RGB')
-
-        target = np.array(target)
-
         img = self.tform.transform(img)
-        target = torch.from_numpy(target)
 
-        return img, target
+        if self.phase=='train':
+            target = self.df.loc[idx, 'category']
+            target = np.array(target)
+            target = torch.from_numpy(target)
+            return img, target
+        else:
+            return img
+
+
     @staticmethod
     def num2str(x):
         ans = ''

@@ -90,6 +90,7 @@ def train(train_loader, model, criterion, optimizer,  epoch, args):
                                                                     np.mean(losses),
                                                                     loss.item(),
                                                                     optimizer.param_groups[0]['lr']))
+    return np.mean(losses)
 
 
 def validation(valid_loader, model, criterion, args):
