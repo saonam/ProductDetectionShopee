@@ -150,6 +150,13 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # model = resnet18(num_classes=42)
     model = EfficientNet.from_pretrained("efficientnet-b0", advprop=True, num_classes=42)
+    for idx, child in enumerate(model.children()):
+        if idx < 3:
+            for param in child.parameters():
+                param.requires_grad = False
+        else:
+            print(child)
+
 
     if args.distributed:
         # For multiprocessing distributed, DistributedDataParallel constructor

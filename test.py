@@ -3,18 +3,24 @@ import numpy as np
 import pandas as pd
 import os
 import torch
+from datasets import shopeeDataset
 from efficientnet_pytorch import EfficientNet
-
+from tqdm import tqdm
 
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
-parser.add_argument('--resume', default=None, type=str,
-                                    help='Checkpoint state_dict file to resume training from')
+parser.add_argument('--resume', default=None, type=str, help='Checkpoint state_dict file to resume training from')
+parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
+                            help='number of data loading workers (default: 4)')
+parser.add_argument('-b', '--batch_size', default=256, type=int,
+                            metavar='N', help='mini-batch size (default: 256), this is the total batch size of all GPUs on the current node when using Data Parallel or Distributed Data Parallel')
+parser.add_argument('--gpu', default=None, type=int,
+                    help='GPU id to use.')
 def test(test_loader, model):
     preds = []
     model.eval()
     with torch.no_grad():
-        for idx, images in enumerate(test_loader):
+        for idx, images in enumerate(tqdm(test_loader)):
             images = images.cuda()
             output = model(images)
             output = output.cpu()
@@ -27,10 +33,9 @@ def test(test_loader, model):
 
 if __name__=='__main__':
     args = parser.parse_args()
-
+    test_df = pd.read_csv('./datas/test.csv')
     test_dataset = shopeeDataset(df=test_df, phase='test')
-
-    test_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
 
 
     checkpoint = []
@@ -44,6 +49,10 @@ if __name__=='__main__':
                 loc = 'cuda:{}'.format(args.gpu)
                 checkpoint = torch.load(args.resume, map_location=loc)
         params = checkpoint['parser']
+        params.resume = args.resume
+        params.workers = args.workers
+        params.batch_size = args.batch_size
+        params.gpu = args.gpu
         args = params
         del params
 
