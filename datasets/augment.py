@@ -151,21 +151,20 @@ class ImageNetPolicy(object):
         return self.policies[policy_idx](img)
     
 class ResizeImage(object):
-    def __init__(self, height=512, width=512):
+    def __init__(self, height=256, width=256):
         self.height = height 
         self.width = width
-        self.pad_fix = iaa.PadToFixedSize(width=width, height=height)
     def __call__(self, img):
         img = np.array(img)
         h, w = img.shape[:2]
-        if h > w:
+        if h < w:
             w = int(self.height*w*1.0/h)
             h = self.height
         else:
             h = int(self.width*h*1.0/w)
             w = self.width
+            
         img = cv2.resize(img, (w, h), interpolation=cv2.INTER_CUBIC)
-        img = self.pad_fix.augment_image(img)
 
         return Image.fromarray(img)
 
@@ -201,7 +200,8 @@ class Augment(object):
             
         ])
         self.aug_test = transforms.Compose([
-            ResizeImage(height=height, width=width),
+            ResizeImage(height=256, width=256),
+            torchvision.transforms.RandomCrop(size=(height, width)),
             transforms.ToTensor(),
             transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
             
