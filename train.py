@@ -63,33 +63,37 @@ def train(train_loader, model, criterion, optimizer,  epoch, args):
 
     losses = []
     model.train()
-    optimizer.zero_grad()
-    for idx, (images, target) in enumerate(tqdm(train_loader)):
-        if args.gpu is not None:
-            images = images.cuda(args.gpu, non_blocking=True)
-        target = target.cuda(args.gpu, non_blocking=True)
+    for idx, (images, target) in enumerate(train_loader):
+        images = images.cuda()
+        target = target.cuda()
 
+        optimizer.zero_grad()
         # compute output
         output = model(images)
         loss = criterion(output, target)
         # compute gradient and do SGD step
         loss.backward()
-        if (idx + 1) % args.grad_accumulation_steps == 0:
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
-            optimizer.step()
-            optimizer.zero_grad()
+        # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+        optimizer.step()
         losses.append(loss.item())
-    return np.mean(losses)
+        if idx % 10 ==0:
+            print('Epoch: [{0}][{1}/{2}]\t'
+                'loss {3}\t'
+                'mean_loss: {4} \t'
+                'Learning rate: {5}'.format(epoch, idx, len(train_loader),
+                                                                    np.mean(losses),
+                                                                    loss.item(),
+                                                                    optimizer.param_groups[0]['lr']))
 def validation(valid_loader, model, criterion, args):
     model.eval()
     total = 0
     correct = 0
     losses = []
     with torch.no_grad():
-        for idx, (images, target) in enumerate(tqdm(valid_loader)):
-            if args.gpu is not None:
-                images = images.cuda(args.gpu, non_blocking=True)
-            target = target.cuda(args.gpu, non_blocking=True)
+        for idx, (images, target) in enumerate(valid_loader):
+            images = images.cuda()
+            target = target.cuda()
+
             output = model(images)
 
             loss = criterion(output, target)
