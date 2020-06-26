@@ -21,10 +21,15 @@ import torch.utils.data.distributed
 from datasets.dataset import shopeeDataset
 from torchvision.models import resnet18, resnet34
 from efficientnet_pytorch import EfficientNet
+from utils.utils import get_state_dict
 from tqdm import tqdm
 
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
+parser.add_argument('--network', default='efficientdet-d0', type=str,
+                                    help='efficientdet-[d0, d1, ..]')
+parser.add_argument('--save_folder', default='./weights/', type=str,
+                                    help='Directory for saving checkpoint models')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                             help='number of data loading workers (default: 4)')
 parser.add_argument('--epochs', default=90, type=int, metavar='N',
@@ -77,7 +82,7 @@ def train(train_loader, model, criterion, optimizer,  epoch, args):
         # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
         optimizer.step()
         losses.append(loss.item())
-        if idx % 10 ==0:
+        if idx %50 ==0:
             print('Epoch: [{0}][{1}/{2}]\t'
                 'loss {3}\t'
                 'mean_loss: {4} \t'
@@ -85,6 +90,8 @@ def train(train_loader, model, criterion, optimizer,  epoch, args):
                                                                     np.mean(losses),
                                                                     loss.item(),
                                                                     optimizer.param_groups[0]['lr']))
+
+
 def validation(valid_loader, model, criterion, args):
     model.eval()
     total = 0
@@ -187,10 +194,25 @@ def main_worker(gpu, ngpus_per_node, args):
         val_loss, acc= validation(valid_loader, model, criterion, args)
         print('Epoch: {}, train_loss: {}, val_loss: {}, Acc: {} %'.format(epoch, train_loss, val_loss, acc))
         scheduler.step(acc)
+        state = {
+                'epoch': epoch,
+                'parser': args,
+                'state_dict': get_state_dict(model)
+            }
+        torch.save(
+            state,
+            os.path.join(
+                args.save_folder,
+                args.network,
+                "{}_{}.pth".format(args.network, epoch)))
+
+
 
 
 def main():
     args = parser.parse_args()
+    if(not os.path.exists(os.path.join(args.save_folder, args.network))):
+        os.makedirs(os.path.join(args.save_folder, args.network))
 
     if args.seed is not None:
         random.seed(args.seed)
