@@ -21,6 +21,7 @@ import torch.utils.data.distributed
 from datasets.dataset import shopeeDataset
 from torchvision.models import resnet18, resnet34
 from efficientnet_pytorch import EfficientNet
+import geffnet
 from utils.utils import get_state_dict
 from tqdm import tqdm
 
@@ -34,6 +35,8 @@ parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                             help='number of data loading workers (default: 4)')
 parser.add_argument('--epochs', default=90, type=int, metavar='N',
                             help='number of total epochs to run')
+parser.add_argument('--num_classes', default=42, type=int,
+                            help='Number of class used in model')
 parser.add_argument('-b', '--batch_size', default=256, type=int,
                             metavar='N', help='mini-batch size (default: 256), this is the total batch size of all GPUs on the current node when using Data Parallel or Distributed Data Parallel')
 parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float,
@@ -43,6 +46,10 @@ parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
 parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
                             metavar='W', help='weight decay (default: 1e-4)',
                                                 dest='weight_decay')
+parser.add_argument('--resume', default=None, type=str,
+                                    help='Checkpoint state_dict file to resume training from')
+parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
+                            help='manual epoch number (useful on restarts)')
 parser.add_argument('--world-size', default=-1, type=int,
                     help='number of nodes for distributed training')
 parser.add_argument('--rank', default=-1, type=int,
@@ -77,9 +84,8 @@ def train(train_loader, model, criterion, optimizer,  epoch, args):
         # compute output
         output = model(images)
         loss = criterion(output, target)
-        # compute gradient and do SGD step
         loss.backward()
-        # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
         optimizer.step()
         losses.append(loss.item())
         if idx %50 ==0:
@@ -147,15 +153,36 @@ def main_worker(gpu, ngpus_per_node, args):
     valid_loader = torch.utils.data.DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
     test_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
 
+    checkpoint = []
+    if(args.resume is not None):
+        if os.path.isfile(args.resume):
+            print("=> loading checkpoint '{}'".format(args.resume))
+            if args.gpu is None:
+                checkpoint = torch.load(args.resume)
+            else:
+                # Map model to be loaded to specified single gpu.
+                loc = 'cuda:{}'.format(args.gpu)
+                checkpoint = torch.load(args.resume, map_location=loc)
+        params = checkpoint['parser']
+        args.start_epoch = checkpoint['epoch'] + 1
+        del params
 
-    # model = resnet18(num_classes=42)
-    model = EfficientNet.from_pretrained("efficientnet-b0", advprop=True, num_classes=42)
-    for idx, child in enumerate(model.children()):
-        if idx < 3:
-            for param in child.parameters():
-                param.requires_grad = False
-        else:
-            print(child)
+    # model = resnet18(num_classes=args.num_classes)
+    # model = EfficientNet.from_pretrained("efficientnet-b0", advprop=True, num_classes=42)
+    model = None
+    if args.network == 'geffnet_efficientnet_b3':
+        print('Load efficinetnet_b3 of geffnet')
+        model = geffnet.efficientnet_b3(pretrained=True, drop_rate=0.25, drop_connect_rate=0.2)
+
+    if(args.resume is not None):
+        model.load_state_dict(checkpoint['state_dict'])
+    del checkpoint
+    # for idx, child in enumerate(model.children()):
+    #     if idx < 3:
+    #         for param in child.parameters():
+    #             param.requires_grad = False
+    #     else:
+    #         print(child)
 
 
     if args.distributed:
@@ -197,10 +224,11 @@ def main_worker(gpu, ngpus_per_node, args):
 
     print('Done main workers')
 
-    for epoch in range(args.epochs):
+    for epoch in range(args.start_epoch, args.epochs):
         train_loss = train(train_loader, model, criterion, optimizer, epoch, args)
+        print('Start validation ...')
         val_loss, acc= validation(valid_loader, model, criterion, args)
-        print('Epoch: {}, train_loss: {}, val_loss: {}, Acc: {} %'.format(epoch, train_loss, val_loss, acc))
+        print('Epoch: {}, train_loss: {}, val_loss: {}, val_acc: {} %'.format(epoch, train_loss, val_loss, acc))
         scheduler.step(acc)
         state = {
                 'epoch': epoch,

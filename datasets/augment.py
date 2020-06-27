@@ -149,10 +149,10 @@ class ImageNetPolicy(object):
     def __call__(self, img):
         policy_idx = random.randint(0, len(self.policies) - 1)
         return self.policies[policy_idx](img)
-    
+
 class ResizeImage(object):
     def __init__(self, height=256, width=256):
-        self.height = height 
+        self.height = height
         self.width = width
     def __call__(self, img):
         img = np.array(img)
@@ -163,9 +163,27 @@ class ResizeImage(object):
         else:
             h = int(self.width*h*1.0/w)
             w = self.width
-            
+
         img = cv2.resize(img, (w, h), interpolation=cv2.INTER_CUBIC)
 
+        return Image.fromarray(img)
+class ResizeImageVal(object):
+    def __init__(self, height=256, width=256):
+        self.height = height
+        self.width = width
+        self.pad_fix = iaa.PadToFixedSize(width=width, height=height)
+    def __call__(self, img):
+        img = np.array(img)
+        h, w = img.shape[:2]
+        if h > w:
+            w = int(self.height*w*1.0/h)
+            h = self.height
+        else:
+            h = int(self.width*h*1.0/w)
+            w = self.width
+
+        img = cv2.resize(img, (w, h), interpolation=cv2.INTER_CUBIC)
+        img = self.pad_fix.augment_image(img)
         return Image.fromarray(img)
 
 class Augment(object):
@@ -188,27 +206,31 @@ class Augment(object):
                         p=0.15),
             transforms.RandomApply(
                         [
-                            ImgAugBlur(),
-                        ],
-                        p=0.4),
-            transforms.RandomApply(
-                        [
                             ImageNetPolicy(),
                         ],
                         p=0.4),
-            transforms.RandomAffine(degrees=5, scale=(0.9, 1.1), shear=5, resample=Image.NEAREST, fillcolor=255)
-            
+            torchvision.transforms.RandomHorizontalFlip(),
+
         ])
         self.aug_test = transforms.Compose([
             ResizeImage(height=256, width=256),
             torchvision.transforms.RandomCrop(size=(height, width)),
             transforms.ToTensor(),
             transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
-            
+
         ])
+        self.testing = transforms.Compose([
+            ResizeImageVal(height=height, width=width),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+            ])
 
     def transform(self, image):
-        if self.phase=='train':
+        if self.phase=='test':
+            image = self.testing(image)
+        elif self.phase == 'valid':
+            image = self.aug_test(image)
+        elif self.phase=='train':
             image = self.aug_train(image)
-        image = self.aug_test(image)
+            image = self.aug_test(image)
         return image

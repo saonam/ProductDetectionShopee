@@ -5,10 +5,12 @@ import os
 import torch
 from datasets import shopeeDataset
 from efficientnet_pytorch import EfficientNet
+import geffnet
 from tqdm import tqdm
 
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
+parser.add_argument('--network', default='sub', type=str)
 parser.add_argument('--resume', default=None, type=str, help='Checkpoint state_dict file to resume training from')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                             help='number of data loading workers (default: 4)')
@@ -48,22 +50,20 @@ if __name__=='__main__':
                 # Map model to be loaded to specified single gpu.
                 loc = 'cuda:{}'.format(args.gpu)
                 checkpoint = torch.load(args.resume, map_location=loc)
-        params = checkpoint['parser']
-        params.resume = args.resume
-        params.workers = args.workers
-        params.batch_size = args.batch_size
-        params.gpu = args.gpu
-        args = params
-        del params
 
-    model = EfficientNet.from_pretrained("efficientnet-b0", advprop=True, num_classes=42)
+    # model = EfficientNet.from_pretrained("efficientnet-b0", advprop=True, num_classes=42)
+    model = geffnet.efficientnet_b3(pretrained=True, drop_rate=0.25, drop_connect_rate=0.2)
     if(args.resume is not None):
         model.load_state_dict(checkpoint['state_dict'])
     model = model.cuda()
     preds = test(test_loader, model)
     submit = pd.read_csv('./datas/test.csv')
+    submit['category'] = submit['category'].astype(str)
+    zeropad = lambda x: '0' + str(x) if len(str(x))==1 else str(x)
+    preds = [zeropad(p) for p in preds]
     submit['category'] = preds
-    submit.to_csv('./weights/sub.csv', index=False)
+    submit['category'] = submit['category'].apply(lambda x: '0'+str(x) if len(str(x))==1 else str(x))
+    submit.to_csv('./weights/{}.csv'.format(args.network), index=False)
 
 
 
