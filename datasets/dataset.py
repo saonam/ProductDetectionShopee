@@ -33,14 +33,12 @@ class shopeeDataset(Dataset):
         else:
             image_path = os.path.join(self.root_path, file_name)
 
-        # img = cv2.imread(image_path)
-        img = Image.open(image_path).convert('RGB')
-        (w, h) = img.size
+        img = cv2.imread(image_path, cv2.IMREAD_COLOR)
+        # img = Image.open(image_path).convert('RGB')
+        (w, h, c) = img.shape
         if self.phase=='train':
             if w < 60 or h < 60:
                 return self[idx+1]
-
-
         img = self.tform.transform(img)
 
         if self.phase=='train':
