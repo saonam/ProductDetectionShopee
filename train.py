@@ -24,7 +24,7 @@ from efficientnet_pytorch import EfficientNet
 import geffnet
 from utils.utils import get_state_dict
 from tqdm import tqdm
-
+import timm
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('--network', default='efficientdet-d0', type=str,
@@ -146,7 +146,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
 
     train_dataset = shopeeDataset(df=train_df, phase='train')
-    valid_dataset = shopeeDataset(df=valid_df, phase='train')
+    valid_dataset = shopeeDataset(df=valid_df, phase='valid')
     test_dataset = shopeeDataset(df=test_df, phase='test')
 
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers, pin_memory=True)
@@ -173,6 +173,11 @@ def main_worker(gpu, ngpus_per_node, args):
     if args.network == 'geffnet_efficientnet_b3':
         print('Load efficinetnet_b3 of geffnet')
         model = geffnet.efficientnet_b3(pretrained=True, drop_rate=0.25, drop_connect_rate=0.2)
+    elif args.network == 'geffnet_efficientnet_l2_ns':
+        model = geffnet.tf_efficientnet_l2_ns_475(pretrained=True, drop_rate=0.25, drop_connect_rate=0.2)
+    elif args.network ==  'timm_efficientnet_b3a':
+        print('Load model timm_efficientnet_b3a')
+        model = timm.create_model('efficientnet_b3', pretrained=True, drop_rate=0.25, drop_connect_rate=0.2, num_classes=args.num_classes)
 
     if(args.resume is not None):
         model.load_state_dict(checkpoint['state_dict'])

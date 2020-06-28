@@ -309,7 +309,7 @@ class imgaugAugment(object):
 
 
 class Augment(object):
-    def __init__(self, width=512, height=512, phase='train'):
+    def __init__(self, width=800, height=800, phase='train'):
         super(Augment, self).__init__()
         self.phase = phase
         self.widht = width
@@ -324,7 +324,7 @@ class Augment(object):
 
         ])
         self.aug_test = transforms.Compose([
-            ResizeImage(height=256, width=256),
+            ResizeImage(height=400, width=400),
             torchvision.transforms.RandomCrop(size=(height, width)),
                         transforms.ToTensor(),
                         transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
