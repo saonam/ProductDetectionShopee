@@ -1,4 +1,3 @@
-
 """RAdam Optimizer.
 Implementation lifted from: https://github.com/LiyuanLucasLiu/RAdam
 Paper: `On the Variance of the Adaptive Learning Rate and Beyond` - https://arxiv.org/abs/1908.03265
