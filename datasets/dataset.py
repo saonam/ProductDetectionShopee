@@ -20,7 +20,7 @@ class shopeeDataset(Dataset):
             self.root_path = './datas/train/train'
         else:
             self.root_path = './datas/test/test'
-        self.tform = Augment(phase=phase, height=320, width=320)
+        self.tform = Augment(phase=phase, height=380, width=380)
 
 
     def __len__(self):

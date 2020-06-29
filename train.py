@@ -88,7 +88,7 @@ def train(train_loader, model, criterion, optimizer,  epoch, args):
         torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
         optimizer.step()
         losses.append(loss.item())
-        if idx %50 ==0:
+        if idx % 200 ==0:
             print('Epoch: [{0}][{1}/{2}]\t'
                 'loss {3}\t'
                 'mean_loss: {4} \t'
@@ -178,6 +178,9 @@ def main_worker(gpu, ngpus_per_node, args):
     elif args.network ==  'timm_efficientnet_b3a':
         print('Load model timm_efficientnet_b3a')
         model = timm.create_model('efficientnet_b3', pretrained=True, drop_rate=0.25, drop_connect_rate=0.2, num_classes=args.num_classes)
+    elif args.network == 'tf_efficientnet_b4_ns':
+        print('Load model tf_efficientnet_b4_ns')
+        model = timm.create_model('tf_efficientnet_b4_ns', pretrained=True, num_classes=args.num_classes)
 
     if(args.resume is not None):
         model.load_state_dict(checkpoint['state_dict'])

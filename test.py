@@ -7,6 +7,7 @@ from datasets import shopeeDataset
 from efficientnet_pytorch import EfficientNet
 import geffnet
 from tqdm import tqdm
+import timm
 
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
@@ -50,9 +51,19 @@ if __name__=='__main__':
                 # Map model to be loaded to specified single gpu.
                 loc = 'cuda:{}'.format(args.gpu)
                 checkpoint = torch.load(args.resume, map_location=loc)
+            params = checkpoint['parser']
+            args.num_classes = params.num_classes
+            del params
 
-    # model = EfficientNet.from_pretrained("efficientnet-b0", advprop=True, num_classes=42)
-    model = geffnet.efficientnet_b3(pretrained=True, drop_rate=0.25, drop_connect_rate=0.2)
+    if args.network == 'geffnet_efficientnet_b3':
+        print('Load efficinetnet_b3 of geffnet')
+        model = geffnet.efficientnet_b3(pretrained=True, drop_rate=0.25, drop_connect_rate=0.2)
+    elif args.network == 'geffnet_efficientnet_l2_ns':
+        model = geffnet.tf_efficientnet_l2_ns_475(pretrained=True, drop_rate=0.25, drop_connect_rate=0.2)
+    elif args.network ==  'timm_efficientnet_b3a':
+        print('Load model timm_efficientnet_b3a')
+        model = timm.create_model('efficientnet_b3', pretrained=True, drop_rate=0.25, drop_connect_rate=0.2, num_classes=args.num_classes)
+
     if(args.resume is not None):
         model.load_state_dict(checkpoint['state_dict'])
     model = model.cuda()

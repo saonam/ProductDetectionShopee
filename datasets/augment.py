@@ -324,7 +324,7 @@ class Augment(object):
 
         ])
         self.aug_test = transforms.Compose([
-            ResizeImage(height=400, width=400),
+            ResizeImage(height=412, width=412),
             torchvision.transforms.RandomCrop(size=(height, width)),
                         transforms.ToTensor(),
                         transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
