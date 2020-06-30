@@ -6,5 +6,6 @@ jobs:
       - image: circleci/python:3.7.3
     steps:
       - checkout
+      - run: ls ~/code
       - run: pip install --upgrade pip --user
       - run: pip install -r ~/code/ProductDetectionShopee/requirements.txt --user
