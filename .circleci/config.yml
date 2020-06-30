@@ -8,4 +8,4 @@ jobs:
       - checkout
       - run: ls ~/code
       - run: pip install --upgrade pip --user
-      - run: pip install -r ~/code/ProductDetectionShopee/requirements.txt --user
+      - run: pip install -r ~/code/requirements.txt --user
