@@ -2,11 +2,11 @@ version: 2.1
 jobs:
   build:
     working_directory: ~/code
-	docker:
-	  - image: circleci/python:3.7.3
-	steps:
-	  - checkout
-	  run:
-	    command: |
-		  pip install -r requirements.txt
-	  run: python a.py
+    docker:
+      - image: circleci/python:3.7.3
+    steps:
+      - checkout
+      run:
+        command: |
+          pip install -r requirements.txt
+      run: python a.py
