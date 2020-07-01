@@ -1,0 +1,10 @@
+torchvision
+torch
+numpy
+pandas
+pillow
+opencv-python
+efficientnet_pytorch
+timm
+geffnet
+imgaug

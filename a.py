@@ -1,0 +1,1 @@
+print('toan dao minh')
