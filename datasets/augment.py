@@ -5,163 +5,8 @@ import imgaug as ia
 import torchvision
 from torchvision import transforms
 from PIL import Image, ImageEnhance, ImageOps
-import random
+from RandAugment.augmentations import Lighting, RandAugment
 
-
-def random_dilate(img):
-    img = np.asarray(img)
-    img = cv2.dilate(img, np.ones(
-        shape=(random.randint(1, 3), random.randint(1, 3)), dtype=np.uint8))
-    return Image.fromarray(img)
-
-
-def random_erode(img):
-    img = np.array(img)
-    img = cv2.erode(img, np.ones(shape=(random.randint(
-        1, 3), random.randint(1, 3)), dtype=np.uint8))
-    return Image.fromarray(img)
-
-
-class ImgAugBlur(object):
-    def __init__(self):
-        self.aug = iaa.Sequential([
-            iaa.Sometimes(0.5,
-                          iaa.OneOf(
-                              [
-                                  iaa.GaussianBlur(sigma=(0, 3.0)),
-                                  iaa.AverageBlur(k=(3, 11)),
-                                  iaa.MedianBlur(k=(3, 11))
-                              ])
-                          ),
-
-        ])
-
-    def __call__(self, img):
-        img = np.array(img)
-        transformed_img = self.aug.augment_image(img)
-
-        return Image.fromarray(transformed_img)
-
-
-class SubPolicy(object):
-    def __init__(self, p1, operation1, magnitude_idx1, p2, operation2, magnitude_idx2, fillcolor=(128, 128, 128)):
-        ranges = {
-            "shearX": np.linspace(0, 0.3, 10),
-            "shearY": np.linspace(0, 0.3, 10),
-            "translateX": np.linspace(0, 150 / 331, 10),
-            "translateY": np.linspace(0, 150 / 331, 10),
-            "rotate": np.linspace(0, 30, 10),
-            "color": np.linspace(0.0, 0.9, 10),
-            "posterize": np.round(np.linspace(8, 4, 10), 0).astype(np.int),
-            "solarize": np.linspace(256, 0, 10),
-            "contrast": np.linspace(0.0, 0.9, 10),
-            "sharpness": np.linspace(0.0, 0.9, 10),
-            "brightness": np.linspace(0.0, 0.9, 10),
-            "autocontrast": [0] * 10,
-            "equalize": [0] * 10,
-            "invert": [0] * 10
-        }
-
-        # from https://stackoverflow.com/questions/5252170/specify-image-filling-color-when-rotating-in-python-with-pil-and-setting-expand
-        def rotate_with_fill(img, magnitude):
-            rot = img.convert("RGBA").rotate(magnitude)
-            return Image.composite(rot, Image.new("RGBA", rot.size, (128,) * 4), rot).convert(img.mode)
-
-        func = {
-            "shearX": lambda img, magnitude: img.transform(
-                img.size, Image.AFFINE, (1, magnitude *
-                                         random.choice([-1, 1]), 0, 0, 1, 0),
-                Image.BICUBIC, fillcolor=fillcolor),
-            "shearY": lambda img, magnitude: img.transform(
-                img.size, Image.AFFINE, (1, 0, 0, magnitude *
-                                         random.choice([-1, 1]), 1, 0),
-                Image.BICUBIC, fillcolor=fillcolor),
-            "translateX": lambda img, magnitude: img.transform(
-                img.size, Image.AFFINE, (1, 0, magnitude *
-                                         img.size[0] * random.choice([-1, 1]), 0, 1, 0),
-                fillcolor=fillcolor),
-            "translateY": lambda img, magnitude: img.transform(
-                img.size, Image.AFFINE, (1, 0, 0, 0, 1, magnitude *
-                                         img.size[1] * random.choice([-1, 1])),
-                fillcolor=fillcolor),
-            "rotate": lambda img, magnitude: rotate_with_fill(img, magnitude),
-            "color": lambda img, magnitude: ImageEnhance.Color(img).enhance(1 + magnitude * random.choice([-1, 1])),
-            "posterize": lambda img, magnitude: ImageOps.posterize(img, magnitude),
-            "solarize": lambda img, magnitude: ImageOps.solarize(img, magnitude),
-            "contrast": lambda img, magnitude: ImageEnhance.Contrast(img).enhance(
-                1 + magnitude * random.choice([-1, 1])),
-            "sharpness": lambda img, magnitude: ImageEnhance.Sharpness(img).enhance(
-                1 + magnitude * random.choice([-1, 1])),
-            "brightness": lambda img, magnitude: ImageEnhance.Brightness(img).enhance(
-                1 + magnitude * random.choice([-1, 1])),
-            "autocontrast": lambda img, magnitude: ImageOps.autocontrast(img),
-            "equalize": lambda img, magnitude: ImageOps.equalize(img),
-            "invert": lambda img, magnitude: ImageOps.invert(img)
-        }
-
-        self.p1 = p1
-        self.operation1 = func[operation1]
-        self.magnitude1 = ranges[operation1][magnitude_idx1]
-        self.p2 = p2
-        self.operation2 = func[operation2]
-        self.magnitude2 = ranges[operation2][magnitude_idx2]
-
-    def __call__(self, img):
-        if random.random() < self.p1:
-            img = self.operation1(img, self.magnitude1)
-        if random.random() < self.p2:
-            img = self.operation2(img, self.magnitude2)
-        return img
-
-
-class ImageNetPolicy(object):
-    """ Randomly choose one of the best 24 Sub-policies on ImageNet.
-        Example:
-        >>> policy = ImageNetPolicy()
-        >>> transformed = policy(image)
-        Example as a PyTorch Transform:
-        >>> transform=transforms.Compose([
-        >>>     transforms.Resize(256),
-        >>>     ImageNetPolicy(),
-        >>>     transforms.ToTensor()])
-    """
-
-    def __init__(self, fillcolor=(128, 128, 128)):
-        self.policies = [
-            SubPolicy(0.4, "posterize", 8, 0.6, "rotate", 9, fillcolor),
-            SubPolicy(0.6, "solarize", 5, 0.6, "autocontrast", 5, fillcolor),
-            SubPolicy(0.8, "equalize", 8, 0.6, "equalize", 3, fillcolor),
-            SubPolicy(0.6, "posterize", 7, 0.6, "posterize", 6, fillcolor),
-            SubPolicy(0.4, "equalize", 7, 0.2, "solarize", 4, fillcolor),
-
-            SubPolicy(0.4, "equalize", 4, 0.8, "rotate", 8, fillcolor),
-            SubPolicy(0.6, "solarize", 3, 0.6, "equalize", 7, fillcolor),
-            SubPolicy(0.8, "posterize", 5, 1.0, "equalize", 2, fillcolor),
-            SubPolicy(0.2, "rotate", 3, 0.6, "solarize", 8, fillcolor),
-            SubPolicy(0.6, "equalize", 8, 0.4, "posterize", 6, fillcolor),
-
-            SubPolicy(0.8, "rotate", 8, 0.4, "color", 0, fillcolor),
-            SubPolicy(0.4, "rotate", 9, 0.6, "equalize", 2, fillcolor),
-            SubPolicy(0.0, "equalize", 7, 0.8, "equalize", 8, fillcolor),
-            SubPolicy(0.6, "invert", 4, 1.0, "equalize", 8, fillcolor),
-            SubPolicy(0.6, "color", 4, 1.0, "contrast", 8, fillcolor),
-
-            SubPolicy(0.8, "rotate", 8, 1.0, "color", 2, fillcolor),
-            SubPolicy(0.8, "color", 8, 0.8, "solarize", 7, fillcolor),
-            SubPolicy(0.4, "sharpness", 7, 0.6, "invert", 8, fillcolor),
-            SubPolicy(0.6, "shearX", 5, 1.0, "equalize", 9, fillcolor),
-            SubPolicy(0.4, "color", 0, 0.6, "equalize", 3, fillcolor),
-
-            SubPolicy(0.4, "equalize", 7, 0.2, "solarize", 4, fillcolor),
-            SubPolicy(0.6, "solarize", 5, 0.6, "autocontrast", 5, fillcolor),
-            SubPolicy(0.6, "invert", 4, 1.0, "equalize", 8, fillcolor),
-            SubPolicy(0.6, "color", 4, 1.0, "contrast", 8, fillcolor),
-            SubPolicy(0.8, "equalize", 8, 0.6, "equalize", 3, fillcolor)
-        ]
-
-    def __call__(self, img):
-        policy_idx = random.randint(0, len(self.policies) - 1)
-        return self.policies[policy_idx](img)
 
 
 class ResizeImage(object):
@@ -307,42 +152,51 @@ class imgaugAugment(object):
         img = self.seq.augment_image(img)
         return Image.fromarray(img)
 
-
+_IMAGENET_PCA = {
+    'eigval': [0.2175, 0.0188, 0.0045],
+    'eigvec': [
+        [-0.5675,  0.7192,  0.4009],
+        [-0.5808, -0.0045, -0.8140],
+        [-0.5836, -0.6948,  0.4203],
+    ]
+}
 class Augment(object):
-    def __init__(self, width=800, height=800, phase='train'):
+    def __init__(self, width=320, height=320, phase='train'):
         super(Augment, self).__init__()
         self.phase = phase
         self.widht = width
         self.height = height
-        self.aug_train = torchvision.transforms.Compose([
-            imgaugAugment(),
-            transforms.RandomApply(
-                [
-                    ImageNetPolicy(),
-                ],
-                p=0.4),
+        # self.transform_train = torchvision.transforms.Compose([
+        #     imgaugAugment(),
+
+
+        # ])
+        self.transform_train = transforms.Compose([
+            RandAugment(n=3, m=9),
+            transforms.RandomResizedCrop(self.height, scale=(0.08, 1.0), interpolation=Image.BICUBIC),
+            transforms.RandomHorizontalFlip(),
+            transforms.ColorJitter(
+                brightness=0.4,
+                contrast=0.4,
+                saturation=0.4,
+            ),
+            transforms.ToTensor(),
+            Lighting(0.1, _IMAGENET_PCA['eigval'], _IMAGENET_PCA['eigvec']),
+            transforms.Normalize(mean=(0.485, 0.456, 0.406),
+                                 std=(0.229, 0.224, 0.225)),
 
         ])
-        self.aug_test = transforms.Compose([
-            ResizeImage(height=412, width=412),
-            torchvision.transforms.RandomCrop(size=(height, width)),
-                        transforms.ToTensor(),
-                        transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
-
-        ])
-        self.testing = transforms.Compose([
-            ResizeImageVal(height=height, width=width),
+        self.transform_test = transforms.Compose([
+            transforms.Resize(self.height+32, interpolation=Image.BICUBIC),
+            transforms.CenterCrop(self.height),
             transforms.ToTensor(),
             transforms.Normalize(mean=(0.485, 0.456, 0.406),
                                  std=(0.229, 0.224, 0.225)),
         ])
 
-    def transform(self, image):
-        if self.phase == 'test':
-            image = self.testing(image)
-        elif self.phase == 'valid':
-            image = self.aug_test(image)
-        elif self.phase == 'train':
-            image = self.aug_train(image)
-            image = self.aug_test(image)
+    def __call__(self, image):
+        if self.phase == 'train':
+            image = self.transform_train(image)
+        elif self.phase == 'valid' or self.phase=='test':
+            image = self.transform_test(image)
         return image

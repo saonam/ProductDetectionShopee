@@ -8,6 +8,8 @@ from efficientnet_pytorch import EfficientNet
 import geffnet
 from tqdm import tqdm
 import timm
+from datasets.transforms_factory import create_transform
+from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
@@ -21,23 +23,41 @@ parser.add_argument('--gpu', default=None, type=int,
                     help='GPU id to use.')
 def test(test_loader, model):
     preds = []
+    probas = []
     model.eval()
     with torch.no_grad():
         for idx, images in enumerate(tqdm(test_loader)):
             images = images.cuda()
             output = model(images)
             output = output.cpu()
-
+            probas.append(output.numpy())
             _, predicted = torch.max(output.data, 1)
             preds.append(predicted)
 
-    return np.hstack(preds)
+    return np.hstack(preds), np.vstack(probas)
 
 
 if __name__=='__main__':
     args = parser.parse_args()
     test_df = pd.read_csv('./datas/test.csv')
     test_dataset = shopeeDataset(df=test_df, phase='test')
+    # test_dataset.transform = create_transform(
+    #         input_size=224,
+    #         is_training=False,
+    #         use_prefetcher=False,
+    #         color_jitter=0.4,
+    #         auto_augment=None,
+    #         interpolation='bilinear',
+    #         mean= IMAGENET_DEFAULT_MEAN,
+    #         std= IMAGENET_DEFAULT_STD,
+    #         crop_pct=0.875,
+    #         tf_preprocessing=False,
+    #         re_prob=0.,
+    #         re_mode='const',
+    #         re_count=1,
+    #         re_num_splits=0,
+    #         separate=False
+    #         )
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
 
 
@@ -55,6 +75,10 @@ if __name__=='__main__':
             args.num_classes = params.num_classes
             del params
 
+    model = None
+    if args.network == 'efficientnet_b1':
+        print('Load EfficientNet-b1')
+        model = EfficientNet.from_pretrained('efficientnet-b1', advprop=False, num_classes=args.num_classes)
     if args.network == 'geffnet_efficientnet_b3':
         print('Load efficinetnet_b3 of geffnet')
         model = geffnet.efficientnet_b3(pretrained=True, drop_rate=0.25, drop_connect_rate=0.2)
@@ -62,13 +86,20 @@ if __name__=='__main__':
         model = geffnet.tf_efficientnet_l2_ns_475(pretrained=True, drop_rate=0.25, drop_connect_rate=0.2)
     elif args.network ==  'timm_efficientnet_b3a':
         print('Load model timm_efficientnet_b3a')
-        model = timm.create_model('efficientnet_b3', pretrained=True, drop_rate=0.25, drop_connect_rate=0.2, num_classes=args.num_classes)
+        model = timm.create_model('efficientnet_b3a', pretrained=True, num_classes=args.num_classes)
+    elif args.network == 'tf_efficientnet_b4_ns':
+        print('Load model tf_efficientnet_b4_ns')
+        model = timm.create_model('tf_efficientnet_b4_ns', pretrained=True, num_classes=args.num_classes)
 
     if(args.resume is not None):
+        print('Load state_dict')
         model.load_state_dict(checkpoint['state_dict'])
     model = model.cuda()
-    preds = test(test_loader, model)
+    preds, probas = test(test_loader, model)
+    print('probas: ', probas.shape)
+    proba_df = pd.DataFrame(probas, columns=range(42))
     submit = pd.read_csv('./datas/test.csv')
+    submit[proba_df.columns] = proba_df
     submit['category'] = submit['category'].astype(str)
     zeropad = lambda x: '0' + str(x) if len(str(x))==1 else str(x)
     preds = [zeropad(p) for p in preds]

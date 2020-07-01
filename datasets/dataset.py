@@ -10,7 +10,7 @@ from datasets import Augment
 
 
 class shopeeDataset(Dataset):
-    def __init__(self, df, phase='train'):
+    def __init__(self, df, height=224, width=224,phase='train'):
         super(shopeeDataset, self).__init__()
         self.df = df
         self.df = self.df.reset_index()
@@ -20,7 +20,7 @@ class shopeeDataset(Dataset):
             self.root_path = './datas/train/train'
         else:
             self.root_path = './datas/test/test'
-        self.tform = Augment(phase=phase, height=380, width=380)
+        self.transform = Augment(phase=phase, height=height, width=height)
 
 
     def __len__(self):
@@ -37,12 +37,13 @@ class shopeeDataset(Dataset):
 
         img = Image.open(image_path).convert('RGB')
         (w, h) = img.size
-        img = np.asarray(img)
+        # img = np.asarray(img)
         if self.phase=='train':
             if w < 60 or h < 60:
                 print('Error image small')
                 return self[np.random.choice(len(self.df))]
-        img = self.tform.transform(img)
+        if self.transform is not None:
+            img = self.transform(img)
 
         if self.phase=='train' or self.phase=='valid':
             target = np.array(target)
@@ -50,7 +51,6 @@ class shopeeDataset(Dataset):
             return img, target
         else:
             return img
-
 
     @staticmethod
     def num2str(x):

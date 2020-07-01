@@ -25,6 +25,8 @@ import geffnet
 from utils.utils import get_state_dict
 from tqdm import tqdm
 import timm
+from datasets.transforms_factory import create_transform
+from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('--network', default='efficientdet-d0', type=str,
@@ -33,6 +35,10 @@ parser.add_argument('--save_folder', default='./weights/', type=str,
                                     help='Directory for saving checkpoint models')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                             help='number of data loading workers (default: 4)')
+parser.add_argument('--height', default=224, type=int, metavar='N',
+                            help='height of image (default: 224)')
+parser.add_argument('--width', default=224, type=int, metavar='N',
+                            help='width of image (default: 224)')
 parser.add_argument('--epochs', default=90, type=int, metavar='N',
                             help='number of total epochs to run')
 parser.add_argument('--num_classes', default=42, type=int,
@@ -142,16 +148,18 @@ def main_worker(gpu, ngpus_per_node, args):
 
     train_df = pd.read_csv('./datas/train.csv')
     test_df = pd.read_csv('./datas/test.csv')
-    train_df, valid_df = train_test_split(train_df, test_size=0.2, random_state=42, stratify=train_df['category'])
+    train_df, valid_df = train_test_split(train_df, test_size=0.1, random_state=42, stratify=train_df['category'])
+    args.train_df_index = train_df.index
+    args.valid_df_index = valid_df.index
 
 
-    train_dataset = shopeeDataset(df=train_df, phase='train')
-    valid_dataset = shopeeDataset(df=valid_df, phase='valid')
-    test_dataset = shopeeDataset(df=test_df, phase='test')
+    train_dataset = shopeeDataset(df=train_df, height=args.height, width=args.width,  phase='train')
+    valid_dataset = shopeeDataset(df=valid_df, height=args.height, width=args.width, phase='valid')
+    # test_dataset = shopeeDataset(df=test_df, phase='test')
 
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers, pin_memory=True)
     valid_loader = torch.utils.data.DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
-    test_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
+    # test_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
 
     checkpoint = []
     if(args.resume is not None):
@@ -170,6 +178,9 @@ def main_worker(gpu, ngpus_per_node, args):
     # model = resnet18(num_classes=args.num_classes)
     # model = EfficientNet.from_pretrained("efficientnet-b0", advprop=True, num_classes=42)
     model = None
+    if args.network == 'efficientnet_b1':
+        print('Load EfficientNet-b1')
+        model = EfficientNet.from_pretrained('efficientnet-b1', advprop=False, num_classes=args.num_classes)
     if args.network == 'geffnet_efficientnet_b3':
         print('Load efficinetnet_b3 of geffnet')
         model = geffnet.efficientnet_b3(pretrained=True, drop_rate=0.25, drop_connect_rate=0.2)
@@ -177,7 +188,7 @@ def main_worker(gpu, ngpus_per_node, args):
         model = geffnet.tf_efficientnet_l2_ns_475(pretrained=True, drop_rate=0.25, drop_connect_rate=0.2)
     elif args.network ==  'timm_efficientnet_b3a':
         print('Load model timm_efficientnet_b3a')
-        model = timm.create_model('efficientnet_b3', pretrained=True, drop_rate=0.25, drop_connect_rate=0.2, num_classes=args.num_classes)
+        model = timm.create_model('efficientnet_b3a', pretrained=True, num_classes=args.num_classes)
     elif args.network == 'tf_efficientnet_b4_ns':
         print('Load model tf_efficientnet_b4_ns')
         model = timm.create_model('tf_efficientnet_b4_ns', pretrained=True, num_classes=args.num_classes)
@@ -190,7 +201,7 @@ def main_worker(gpu, ngpus_per_node, args):
     #         for param in child.parameters():
     #             param.requires_grad = False
     #     else:
-    #         print(child)
+    #         print(idx, child)
 
 
     if args.distributed:
