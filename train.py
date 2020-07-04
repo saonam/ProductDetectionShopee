@@ -146,7 +146,7 @@ def main_worker(gpu, ngpus_per_node, args):
                                 world_size=args.world_size, rank=args.rank)
 
 
-    train_df = pd.read_csv('./datas/train_test.csv')
+    train_df = pd.read_csv('./datas/train.csv')
     test_df = pd.read_csv('./datas/test.csv')
     train_df, valid_df = train_test_split(train_df, test_size=0.1, random_state=42, stratify=train_df['category'])
     args.train_df_index = train_df.index

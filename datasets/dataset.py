@@ -21,7 +21,7 @@ class shopeeDataset(Dataset):
             self.root_path['test'] = './datas/test/test'
         else:
             self.root_path = './datas/test/test'
-        self.transform = Augment(phase='test', height=height, width=height)
+        self.transform = Augment(phase=self.phase, height=height, width=height)
 
 
     def __len__(self):
@@ -40,8 +40,8 @@ class shopeeDataset(Dataset):
 
         img = Image.open(image_path).convert('RGB')
         (w, h) = img.size
-        # if self.phase == 'train':
-        #     img = np.asarray(img)
+        if self.phase == 'train':
+            img = np.asarray(img)
         # img = np.asarray(img)
         if self.phase=='train':
             if w < 60 or h < 60:
@@ -49,7 +49,6 @@ class shopeeDataset(Dataset):
                 return self[np.random.choice(len(self.df))]
         if self.transform is not None:
             img = self.transform(img)
-        return img
         if self.phase=='train' or self.phase=='valid':
             target = np.array(target)
             target = torch.from_numpy(target)
