@@ -10,17 +10,18 @@ from datasets import Augment
 
 
 class shopeeDataset(Dataset):
-    def __init__(self, df, height=224, width=224,phase='train'):
+    def __init__(self, df, height=320, width=320,phase='train'):
         super(shopeeDataset, self).__init__()
         self.df = df
         self.df = self.df.reset_index()
         self.phase = phase
-        self.root_path = ''
+        self.root_path = {}
         if self.phase =='train' or self.phase=='valid':
-            self.root_path = './datas/train/train'
+            self.root_path['train'] = './datas/train/train'
+            self.root_path['test'] = './datas/test/test'
         else:
             self.root_path = './datas/test/test'
-        self.transform = Augment(phase=phase, height=height, width=height)
+        self.transform = Augment(phase='test', height=height, width=height)
 
 
     def __len__(self):
@@ -29,7 +30,9 @@ class shopeeDataset(Dataset):
         file_name = self.df.loc[idx, 'filename']
         if self.phase == 'train' or self.phase == 'valid':
             target = self.df.loc[idx, 'category']
-            image_path = os.path.join(self.root_path, self.num2str(target), file_name)
+            # flag = self.df.loc[idx, 'path']
+            flag = 'train'
+            image_path = os.path.join(self.root_path[flag], self.num2str(target, flag), file_name)
         else:
             image_path = os.path.join(self.root_path, file_name)
 
@@ -37,6 +40,8 @@ class shopeeDataset(Dataset):
 
         img = Image.open(image_path).convert('RGB')
         (w, h) = img.size
+        # if self.phase == 'train':
+        #     img = np.asarray(img)
         # img = np.asarray(img)
         if self.phase=='train':
             if w < 60 or h < 60:
@@ -44,7 +49,7 @@ class shopeeDataset(Dataset):
                 return self[np.random.choice(len(self.df))]
         if self.transform is not None:
             img = self.transform(img)
-
+        return img
         if self.phase=='train' or self.phase=='valid':
             target = np.array(target)
             target = torch.from_numpy(target)
@@ -53,7 +58,9 @@ class shopeeDataset(Dataset):
             return img
 
     @staticmethod
-    def num2str(x):
+    def num2str(x, flag):
+        if flag == 'test':
+            return ''
         ans = ''
         if(len(str(x))==1):
             ans = '0'+str(x)

@@ -172,6 +172,7 @@ class Augment(object):
 
         # ])
         self.transform_train = transforms.Compose([
+            imgaugAugment(),
             RandAugment(n=3, m=9),
             transforms.RandomResizedCrop(self.height, scale=(0.08, 1.0), interpolation=Image.BICUBIC),
             transforms.RandomHorizontalFlip(),

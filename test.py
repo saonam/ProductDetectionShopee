@@ -21,6 +21,12 @@ parser.add_argument('-b', '--batch_size', default=256, type=int,
                             metavar='N', help='mini-batch size (default: 256), this is the total batch size of all GPUs on the current node when using Data Parallel or Distributed Data Parallel')
 parser.add_argument('--gpu', default=None, type=int,
                     help='GPU id to use.')
+parser.add_argument('--width', default=None, type=int,
+                    help='GPU id to use.')
+parser.add_argument('--height', default=None, type=int,
+                    help='GPU id to use.')
+parser.add_argument('--name', default=None, type=str,
+                    help='GPU id to use.')
 def test(test_loader, model):
     preds = []
     probas = []
@@ -40,24 +46,9 @@ def test(test_loader, model):
 if __name__=='__main__':
     args = parser.parse_args()
     test_df = pd.read_csv('./datas/test.csv')
-    test_dataset = shopeeDataset(df=test_df, phase='test')
-    # test_dataset.transform = create_transform(
-    #         input_size=224,
-    #         is_training=False,
-    #         use_prefetcher=False,
-    #         color_jitter=0.4,
-    #         auto_augment=None,
-    #         interpolation='bilinear',
-    #         mean= IMAGENET_DEFAULT_MEAN,
-    #         std= IMAGENET_DEFAULT_STD,
-    #         crop_pct=0.875,
-    #         tf_preprocessing=False,
-    #         re_prob=0.,
-    #         re_mode='const',
-    #         re_count=1,
-    #         re_num_splits=0,
-    #         separate=False
-    #         )
+
+    # test_dataset = shopeeDataset(df=train_df, phase='train')
+    test_dataset = shopeeDataset(df=test_df, phase='test', width=args.width, height=args.height)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
 
 
@@ -97,15 +88,15 @@ if __name__=='__main__':
     model = model.cuda()
     preds, probas = test(test_loader, model)
     print('probas: ', probas.shape)
-    proba_df = pd.DataFrame(probas, columns=range(42))
+    # proba_df = pd.DataFrame(probas, columns=range(42))
     submit = pd.read_csv('./datas/test.csv')
-    submit[proba_df.columns] = proba_df
+    # submit[proba_df.columns] = proba_df
     submit['category'] = submit['category'].astype(str)
     zeropad = lambda x: '0' + str(x) if len(str(x))==1 else str(x)
     preds = [zeropad(p) for p in preds]
     submit['category'] = preds
     submit['category'] = submit['category'].apply(lambda x: '0'+str(x) if len(str(x))==1 else str(x))
-    submit.to_csv('./weights/{}.csv'.format(args.network), index=False)
+    submit.to_csv('./submit/{}_{}.csv'.format(args.network, args.name), index=False)
 
 
 

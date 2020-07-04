@@ -146,7 +146,7 @@ def main_worker(gpu, ngpus_per_node, args):
                                 world_size=args.world_size, rank=args.rank)
 
 
-    train_df = pd.read_csv('./datas/train.csv')
+    train_df = pd.read_csv('./datas/train_test.csv')
     test_df = pd.read_csv('./datas/test.csv')
     train_df, valid_df = train_test_split(train_df, test_size=0.1, random_state=42, stratify=train_df['category'])
     args.train_df_index = train_df.index
@@ -192,12 +192,18 @@ def main_worker(gpu, ngpus_per_node, args):
     elif args.network == 'tf_efficientnet_b4_ns':
         print('Load model tf_efficientnet_b4_ns')
         model = timm.create_model('tf_efficientnet_b4_ns', pretrained=True, num_classes=args.num_classes)
+    elif args.network == 'tf_efficientnet_b7_ns':
+        print('Load model tf efficientnet_b7_ns')
+        model = timm.create_model('tf_efficientnet_b7_ns', pretrained=True, num_classes=args.num_classes)
+    elif args.network == 'mixnet_xl':
+        print('Load mixnet_xl')
+        model = timm.create_model('mixnet_xl', pretrained=True, num_classes=args.num_classes)
 
     if(args.resume is not None):
         model.load_state_dict(checkpoint['state_dict'])
     del checkpoint
     # for idx, child in enumerate(model.children()):
-    #     if idx < 3:
+    #     if idx < 4:
     #         for param in child.parameters():
     #             param.requires_grad = False
     #     else:
